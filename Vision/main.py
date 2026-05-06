@@ -12,7 +12,7 @@ FOCAL_LENGTH = 700
 VALID_CLASSES = ["bottle", "cup"]
 
 print("📷 Opening camera...")
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
     print("ERROR: Camera failed to open")
