@@ -5,8 +5,16 @@ import cv2
 
 print("Loading YOLO model...")
 model = YOLO("yolov8n.pt")
-print("Model loaded!")
 
+import torch
+
+if torch.cuda.is_available():
+    model.to("cuda")
+    print("Using GPU acceleration")
+else:
+    print("CUDA not available, using CPU")
+
+print("Model loaded!")
 REAL_HEIGHT = 12.0   # cm
 FOCAL_LENGTH = 700
 VALID_CLASSES = ["bottle", "cup"]
