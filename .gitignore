@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+
+# YOLO / Training
+runs/
+*.pt
+
+# Datasets
+train/
+valid/
+test/
+datasets/
+*.zip
+
+# Virtual environments
+venv/
+.env
+
+# VSCode
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# JetBrains / PyCharm
+.idea/
+
+# Project datasets / training exports
+model_training/
+taco_dataset/
+
+# Roboflow / YOLO exports
+*.yolov11/
+*.yolov8/
+
+# Model weights / exports
+*.onnx
+*.engine
+*.torchscript
+
+# Images/videos you do not want by default
+*.mp4
+*.avi
+*.mov

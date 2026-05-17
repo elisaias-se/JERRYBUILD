@@ -2,11 +2,12 @@ print("🚀 Starting program...")
 
 from ultralytics import YOLO
 import cv2
-
-print("Loading YOLO model...")
-model = YOLO("yolov8n.pt")
-
 import torch
+
+print("Loading custom YOLO model...")
+
+# LOAD YOUR CUSTOM TRAINED MODEL
+model = YOLO(r"C:\Users\Eli\runs\detect\train-2\weights\best.pt")
 
 if torch.cuda.is_available():
     model.to("cuda")
@@ -15,12 +16,18 @@ else:
     print("CUDA not available, using CPU")
 
 print("Model loaded!")
-REAL_HEIGHT = 12.0   # cm
+print("Model classes:", model.names)
+
+REAL_HEIGHT = 12.0
 FOCAL_LENGTH = 700
-VALID_CLASSES = ["bottle", "cup"]
+
+# Your merged dataset should now only contain this class
+VALID_CLASSES = ["trash"]
 
 print("📷 Opening camera...")
-cap = cv2.VideoCapture(0)
+
+# Windows camera backend
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 if not cap.isOpened():
     print("ERROR: Camera failed to open")
@@ -28,42 +35,41 @@ if not cap.isOpened():
 else:
     print("Camera opened successfully")
 
-# (Remove this line - it's incorrect usage)
-# cap.set(3, REAL_HEIGHT)
-
-# REMOVE duplicate camera initialization
-# cap = cv2.VideoCapture(0)
-
 frame_count = 0
 
 while True:
     ret, frame = cap.read()
+
     if not ret:
         print("Failed to grab frame")
         break
 
     frame_count += 1
 
-    # Only print every 30 frames to avoid spam
     if frame_count % 30 == 0:
         print(f"Processing frame {frame_count}")
 
     frame = cv2.resize(frame, (640, 480))
 
-    print(" Running YOLO inference...")
-    results = model(frame, classes=[39, 41], conf=0.5)
-    print(" Inference complete")
+    print("Running YOLO inference...")
+
+    # REMOVE old COCO class filtering
+    results = model(frame, conf=0.5)
+
+    print("Inference complete")
 
     detected_any = False
 
     for box in results[0].boxes:
+
         cls_id = int(box.cls[0])
         label = model.names[cls_id]
         conf = float(box.conf[0])
 
         print(f"Detected: {label} ({conf:.2f})")
 
-        if label not in VALID_CLASSES or conf < 0.5:
+        # Only allow trash detections
+        if label not in VALID_CLASSES:
             continue
 
         detected_any = True
@@ -81,23 +87,42 @@ while True:
 
         distance = (REAL_HEIGHT * FOCAL_LENGTH) / pixel_height
 
-        print(f"Object at ({cx}, {cy}) | Distance: {distance:.2f} cm")
+        print(f"{label} at ({cx}, {cy}) | Distance: {distance:.2f} cm")
 
+        # Bounding box
+        cv2.rectangle(
+            frame,
+            (int(x1), int(y1)),
+            (int(x2), int(y2)),
+            (0, 255, 0),
+            2
+        )
+
+        # Center point
         cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)
-        cv2.putText(frame, f"{distance:.1f} cm",
-                    (int(x1), int(y1)-10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5, (0,255,0), 2)
 
-    if not detected_any:
+        # Label text
+        cv2.putText(
+            frame,
+            f"{label} {conf:.2f} | {distance:.1f} cm",
+            (int(x1), int(y1)-10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (0,255,0),
+            2
+        )
+
+    if not detected_any and frame_count % 30 == 0:
         print("⚠️ No valid objects detected")
 
-    cv2.imshow("Detection + Depth", frame)
+    cv2.imshow("Custom Trash Detection", frame)
 
+    # ESC key exits
     if cv2.waitKey(1) == 27:
         print("Exiting...")
         break
 
 cap.release()
 cv2.destroyAllWindows()
+
 print("Program ended cleanly")
