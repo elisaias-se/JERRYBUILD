@@ -7,7 +7,7 @@ import torch
 print("Loading custom YOLO model...")
 
 # LOAD YOUR CUSTOM TRAINED MODEL
-model = YOLO(r"C:\Users\Eli\runs\detect\train-2\weights\best.pt")
+model = YOLO("best.pt")
 
 if torch.cuda.is_available():
     model.to("cuda")
@@ -26,8 +26,8 @@ VALID_CLASSES = ["trash"]
 
 print("📷 Opening camera...")
 
-# Windows camera backend
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+# Windows camera backend (Ubuntu method)
+cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
     print("ERROR: Camera failed to open")
