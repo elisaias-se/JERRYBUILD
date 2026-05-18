@@ -117,10 +117,11 @@ while True:
     if not detected_any and frame_count % 30 == 0:
         print("⚠️ No valid objects detected")
 
-    cv2.imwrite("latest_detection.jpg", frame)
+    cv2.imshow("Custom Trash Detection", frame)
+
     # ESC key exits
-    if frame_count >= 100:
-        print("Saved latest_detection.jpg. Exiting...")
+    if cv2.waitKey(1) == 27:
+        print("Exiting...")
         break
 
 cap.release()
