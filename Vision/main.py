@@ -51,7 +51,7 @@ while True:
     if frame_count % 30 == 0:
         print(f"Processing frame {frame_count}")
 
-    frame = cv2.resize(frame, (640, 480))
+    frame = cv2.resize(frame, (640, 640))
 
     print("Running YOLO inference...")
 
