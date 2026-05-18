@@ -1,0 +1,15 @@
+ssh eli-saias-se@10.168.168.161
+
+
+CUDA GPU ACCERLATED DEPENDENCIES:
+$ wget https://github.com/davidl-nv/torch/raw/refs/heads/main/torch-2.8/torch-2.8.0-cp310-cp310-linux_aarch64.whl
+$ wget https://github.com/davidl-nv/torch/raw/refs/heads/main/torch-2.8/torchvision-0.23.0-cp310-cp310-linux_aarch64.whl
+$ pip3 install torch-2.8.0-cp310-cp310-linux_aarch64.whl 
+$ pip3 install torchvision-0.23.0-cp310-cp310-linux_aarch64.whl 
+
+
+$ wget https://developer.download.nvidia.com/compute/cusparselt/0.8.1/local_installers/cusparselt-local-tegra-repo-ubuntu2204-0.8.1_0.8.1-1_arm64.deb
+$ sudo dpkg -i cusparselt-local-tegra-repo-ubuntu2204-0.8.1_0.8.1-1_arm64.deb
+$ sudo cp /var/cusparselt-local-tegra-repo-ubuntu2204-0.8.1/cusparselt-*-keyring.gpg /usr/share/keyrings/
+$ sudo apt-get update
+$ sudo apt-get -y install cusparselt-cuda-12

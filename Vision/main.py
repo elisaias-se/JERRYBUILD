@@ -7,7 +7,9 @@ import torch
 print("Loading custom YOLO model...")
 
 # LOAD YOUR CUSTOM TRAINED MODEL
+
 model = YOLO("best.pt")
+
 
 if torch.cuda.is_available():
     model.to("cuda")
