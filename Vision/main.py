@@ -3,6 +3,7 @@ print("🚀 Starting program...")
 from ultralytics import YOLO
 import cv2
 import torch
+import time
 
 print("Loading custom YOLO model...")
 
@@ -52,11 +53,16 @@ while True:
 
     frame = cv2.resize(frame, (640, 640))
 
-    print("Running YOLO inference...")
+    start_time = time.time()
 
-    # REMOVE old COCO class filtering
     results = model(frame, conf=0.5, verbose=False, device=0)
-    print("Inference complete")
+
+    end_time = time.time()
+
+    inference_ms = (end_time - start_time) * 1000
+    fps = 1000 / inference_ms
+
+    print(f"Inference: {inference_ms:.2f} ms | FPS: {fps:.2f}")
 
     detected_any = False
 
