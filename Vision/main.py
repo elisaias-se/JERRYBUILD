@@ -8,14 +8,13 @@ print("Loading custom YOLO model...")
 
 # LOAD YOUR CUSTOM TRAINED MODEL
 
-model = YOLO("best.engine")
+model = YOLO("best.engine", task="detect")
 
-
-if torch.cuda.is_available():
-    model.to("cuda")
-    print("Using GPU acceleration")
-else:
-    print("CUDA not available, using CPU")
+# if torch.cuda.is_available():
+#
+#     print("Using GPU acceleration")
+# else:
+#     print("CUDA not available, using CPU")
 
 print("Model loaded!")
 print("Model classes:", model.names)
@@ -56,8 +55,7 @@ while True:
     print("Running YOLO inference...")
 
     # REMOVE old COCO class filtering
-    results = model(frame, conf=0.5)
-
+    results = model(frame, conf=0.5, verbose=False, device=0)
     print("Inference complete")
 
     detected_any = False
