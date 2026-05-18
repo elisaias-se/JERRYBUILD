@@ -8,7 +8,7 @@ print("Loading custom YOLO model...")
 
 # LOAD YOUR CUSTOM TRAINED MODEL
 
-model = YOLO("best.pt")
+model = YOLO("best.engine")
 
 
 if torch.cuda.is_available():
