@@ -29,6 +29,9 @@ REAL_HEIGHT_CM = 12.0
 
 CONFIDENCE_THRESHOLD = 0.5
 
+# Real-world calibration scale factor
+DISTANCE_CALIBRATION_FACTOR = 0.8036
+
 
 # =========================
 # Camera / Geometry Helpers
@@ -53,18 +56,14 @@ def calculate_horizontal_angle(cx, frame_width, horizontal_fov=CAMERA_HORIZONTAL
 
     return angle
 
-
 def calculate_distance_cm(real_height_cm, pixel_height, focal_length_y):
-    """
-    Estimates distance using object height in pixels.
-
-    distance = (real object height * focal length) / pixel height
-    """
     if pixel_height <= 0:
         return None
 
-    distance = (real_height_cm * focal_length_y) / pixel_height
-    return distance
+    raw_distance = (real_height_cm * focal_length_y) / pixel_height
+    calibrated_distance = raw_distance * DISTANCE_CALIBRATION_FACTOR
+
+    return calibrated_distance
 
 
 def open_camera(camera_index=0):
