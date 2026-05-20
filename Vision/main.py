@@ -7,15 +7,7 @@ import time
 
 print("Loading custom YOLO model...")
 
-# LOAD YOUR CUSTOM TRAINED MODEL
-
 model = YOLO("best.engine", task="detect")
-
-# if torch.cuda.is_available():
-#
-#     print("Using GPU acceleration")
-# else:
-#     print("CUDA not available, using CPU")
 
 print("Model loaded!")
 print("Model classes:", model.names)
@@ -23,12 +15,30 @@ print("Model classes:", model.names)
 REAL_HEIGHT = 12.0
 FOCAL_LENGTH = 700
 
-# Your merged dataset should now only contain this class
+# Tune this based on your camera's real horizontal field of view
+CAMERA_HORIZONTAL_FOV = 70  # degrees
+
 VALID_CLASSES = ["trash"]
+
+
+def calculate_horizontal_angle(cx, frame_width, horizontal_fov=CAMERA_HORIZONTAL_FOV):
+    """
+    Calculates the horizontal angle of the detected object from camera center.
+
+    Negative angle = object is left of center
+    Positive angle = object is right of center
+    """
+    image_center_x = frame_width / 2
+    pixel_offset = cx - image_center_x
+
+    angle_per_pixel = horizontal_fov / frame_width
+    angle = pixel_offset * angle_per_pixel
+
+    return angle
+
 
 print("📷 Opening camera...")
 
-# Windows camera backend (Ubuntu method)
 cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
@@ -52,6 +62,7 @@ while True:
         print(f"Processing frame {frame_count}")
 
     frame = cv2.resize(frame, (640, 640))
+    frame_height, frame_width = frame.shape[:2]
 
     start_time = time.time()
 
@@ -67,14 +78,12 @@ while True:
     detected_any = False
 
     for box in results[0].boxes:
-
         cls_id = int(box.cls[0])
         label = model.names[cls_id]
         conf = float(box.conf[0])
 
         print(f"Detected: {label} ({conf:.2f})")
 
-        # Only allow trash detections
         if label not in VALID_CLASSES:
             continue
 
@@ -85,6 +94,8 @@ while True:
         cx = int((x1 + x2) / 2)
         cy = int((y1 + y2) / 2)
 
+        angle = calculate_horizontal_angle(cx, frame_width)
+
         pixel_height = y2 - y1
 
         if pixel_height == 0:
@@ -93,9 +104,12 @@ while True:
 
         distance = (REAL_HEIGHT * FOCAL_LENGTH) / pixel_height
 
-        print(f"{label} at ({cx}, {cy}) | Distance: {distance:.2f} cm")
+        print(
+            f"{label} at ({cx}, {cy}) | "
+            f"Distance: {distance:.2f} cm | "
+            f"Angle: {angle:.2f}°"
+        )
 
-        # Bounding box
         cv2.rectangle(
             frame,
             (int(x1), int(y1)),
@@ -104,17 +118,15 @@ while True:
             2
         )
 
-        # Center point
         cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)
 
-        # Label text
         cv2.putText(
             frame,
-            f"{label} {conf:.2f} | {distance:.1f} cm",
-            (int(x1), int(y1)-10),
+            f"{label} {conf:.2f} | {distance:.1f} cm | {angle:.1f} deg",
+            (int(x1), int(y1) - 10),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
-            (0,255,0),
+            (0, 255, 0),
             2
         )
 
@@ -123,7 +135,6 @@ while True:
 
     cv2.imshow("Custom Trash Detection", frame)
 
-    # ESC key exits
     if cv2.waitKey(1) == 27:
         print("Exiting...")
         break
