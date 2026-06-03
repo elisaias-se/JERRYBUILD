@@ -59,19 +59,9 @@ def calculate_5dof_pose(
     distance_cm,
     angle_deg,
     target_height_cm=3,
-    wrist=90,
+    wrist_angle=90,
     gripper_angle=120,
 ):
-    """
-    Full 5-motor pose.
-
-    Motor 1: base
-    Motor 2: shoulder
-    Motor 3: elbow
-    Motor 4: wrist rotation
-    Motor 5: gripper open/close
-    """
-
     base = calculate_base_angle(angle_deg)
     shoulder, elbow = calculate_2_link_ik(distance_cm, target_height_cm)
 
@@ -79,6 +69,6 @@ def calculate_5dof_pose(
         "base": base,
         "shoulder": shoulder,
         "elbow": elbow,
-        "wrist": round(clamp(wrist)),
+        "wrist": round(clamp(wrist_angle)),
         "gripper": round(clamp(gripper_angle)),
     }
