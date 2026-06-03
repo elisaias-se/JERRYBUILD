@@ -120,11 +120,11 @@ while True:
             print(target)
 
             # Keep this commented until you fully trust the coordinates.
-            # arm.pickup_object(
-            #     distance_cm=target["y_cm"],
-            #     angle_deg=target["angle_deg"],
-            #     wrist_angle=stable_grasp["wrist_angle"]
-            # )
+            arm.pickup_object(
+                distance_cm=target["y_cm"],
+                angle_deg=target["angle_deg"],
+                wrist_angle=stable_grasp["wrist_angle"]
+            )
 
             tracker.reset()
             arm_busy = False
