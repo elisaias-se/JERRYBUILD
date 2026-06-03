@@ -102,7 +102,7 @@ while True:
             f"Angle: {angle_deg:.2f}° | "
             f"X: {x_cm:.2f} cm | "
             f"Y: {y_cm:.2f} cm | "
-            f"Wrist: {grasp['wrist_angle']}°"
+            f"Wrist: {grasp.get('wrist_angle', grasp.get('wrist', 90))}°"
         )
 
         if tracker.is_stable() and not arm_busy:
