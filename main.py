@@ -12,6 +12,7 @@ from tracking.camera_math import (
     calculate_horizontal_angle,
     calculate_xy,
 )
+from tracking.target_tracker import TargetTracker
 from grasping.grasp_planner import plan_grip
 from arm.arm_controller import ArmController
 
@@ -30,6 +31,9 @@ def open_camera(camera_index=0):
 
 detector = TrashDetector()
 arm = ArmController()
+tracker = TargetTracker(max_samples=12)
+
+arm_busy = False
 
 print("📷 Opening camera...")
 cap = open_camera(0)
@@ -54,9 +58,7 @@ while True:
     frame_height, frame_width = frame.shape[:2]
 
     start_time = time.time()
-
     detections = detector.detect(frame)
-
     end_time = time.time()
 
     inference_ms = (end_time - start_time) * 1000
@@ -66,8 +68,11 @@ while True:
         print(f"Processing frame {frame_count}")
         print(f"Inference: {inference_ms:.2f} ms | FPS: {fps:.2f}")
 
-    if len(detections) == 0 and frame_count % 30 == 0:
-        print("No valid trash detected")
+    if len(detections) == 0:
+        tracker.reset()
+
+        if frame_count % 30 == 0:
+            print("No valid trash detected")
 
     for detection in detections:
         distance_cm = calculate_distance_cm(detection["pixel_height"])
@@ -82,6 +87,13 @@ while True:
 
         x_cm, y_cm = calculate_xy(distance_cm, angle_deg)
 
+        tracker.update(
+            distance_cm=distance_cm,
+            angle_deg=angle_deg,
+            x_cm=x_cm,
+            y_cm=y_cm
+        )
+
         grasp = plan_grip(detection, x_cm, y_cm)
 
         print(
@@ -90,8 +102,32 @@ while True:
             f"Angle: {angle_deg:.2f}° | "
             f"X: {x_cm:.2f} cm | "
             f"Y: {y_cm:.2f} cm | "
-            f"Grip: {grasp['gripper_angle']}°"
+            f"Wrist: {grasp['wrist_angle']}°"
         )
+
+        if tracker.is_stable() and not arm_busy:
+            arm_busy = True
+
+            target = tracker.get_average_target()
+
+            stable_grasp = plan_grip(
+                detection=detection,
+                x_cm=target["x_cm"],
+                y_cm=target["y_cm"]
+            )
+
+            print("Stable target locked:")
+            print(target)
+
+            # Keep this commented until you fully trust the coordinates.
+            # arm.pickup_object(
+            #     distance_cm=target["y_cm"],
+            #     angle_deg=target["angle_deg"],
+            #     wrist_angle=stable_grasp["wrist_angle"]
+            # )
+
+            tracker.reset()
+            arm_busy = False
 
         x1 = int(detection["x1"])
         y1 = int(detection["y1"])
@@ -113,9 +149,6 @@ while True:
             2
         )
 
-        # Keep this commented until you trust the coordinates.
-        # arm.pick_up(grasp)
-
     cv2.imshow("Custom Trash Detection", frame)
 
     if cv2.waitKey(1) == 27:
@@ -124,5 +157,7 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+arm.close_connection()
 
 print("Program ended cleanly")

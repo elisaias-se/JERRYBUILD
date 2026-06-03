@@ -35,7 +35,7 @@ def calculate_horizontal_angle(cx, frame_width):
 def calculate_xy(distance_cm, angle_deg):
     angle_rad = math.radians(angle_deg)
 
-    x_cm = distance_cm * math.sin(angle_rad)
-    y_cm = distance_cm * math.cos(angle_rad)
+    side_offset_cm = distance_cm * math.sin(angle_rad)
+    forward_cm = distance_cm * math.cos(angle_rad)
 
-    return x_cm, y_cm
+    return side_offset_cm, forward_cm
