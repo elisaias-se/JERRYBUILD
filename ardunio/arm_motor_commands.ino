@@ -1,17 +1,17 @@
-/*Upload code to connected Arduino (Intended for Arduino 2560 MEGA)*/
-#include <Servo.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
 
-Servo baseServo;
-Servo shoulderServo;
-Servo elbowServo;
-Servo wristServo;
-Servo gripperServo;
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-const int BASE_PIN = 2;
-const int SHOULDER_PIN = 3;
-const int ELBOW_PIN = 4;
-const int WRIST_PIN = 5;
-const int GRIPPER_PIN = 6;
+#define SERVOMIN  150
+#define SERVOMAX  600
+#define SERVO_FREQ 50
+
+const int BASE_CH = 0;
+const int SHOULDER_CH = 1;
+const int ELBOW_CH = 2;
+const int WRIST_CH = 3;
+const int GRIPPER_CH = 4;
 
 int basePos = 90;
 int shoulderPos = 90;
@@ -19,17 +19,12 @@ int elbowPos = 90;
 int wristPos = 90;
 int gripperPos = 120;
 
-const int GRIPPER_OPEN = 120;
-const int GRIPPER_CLOSED = 55;
-
 void setup() {
   Serial.begin(115200);
 
-  baseServo.attach(BASE_PIN);
-  shoulderServo.attach(SHOULDER_PIN);
-  elbowServo.attach(ELBOW_PIN);
-  wristServo.attach(WRIST_PIN);
-  gripperServo.attach(GRIPPER_PIN);
+  pwm.begin();
+  pwm.setPWMFreq(SERVO_FREQ);
+  delay(10);
 
   homeArm();
 }
@@ -41,12 +36,15 @@ void loop() {
 
     if (command == "HOME") {
       homeArm();
+      Serial.println("OK HOME");
     }
     else if (command == "OPEN") {
       openGripper();
+      Serial.println("OK OPEN");
     }
     else if (command == "CLOSE") {
       closeGripper();
+      Serial.println("OK CLOSE");
     }
     else if (command.startsWith("POSE")) {
       handlePoseCommand(command);
@@ -54,12 +52,17 @@ void loop() {
   }
 }
 
+int angleToPulse(int angle) {
+  angle = constrain(angle, 0, 180);
+  return map(angle, 0, 180, SERVOMIN, SERVOMAX);
+}
+
+void writeServo(int channel, int angle) {
+  pwm.setPWM(channel, 0, angleToPulse(angle));
+}
+
 void handlePoseCommand(String command) {
-  int base;
-  int shoulder;
-  int elbow;
-  int wrist;
-  int gripper;
+  int base, shoulder, elbow, wrist, gripper;
 
   int parsed = sscanf(
     command.c_str(),
@@ -75,41 +78,31 @@ void handlePoseCommand(String command) {
     moveArmToPose(base, shoulder, elbow, wrist, gripper);
     Serial.println("OK");
   } else {
-    Serial.println("ERROR: Invalid POSE command");
+    Serial.println("ERROR INVALID POSE");
   }
 }
 
 void homeArm() {
-  smoothMove(baseServo, basePos, 90);
-  smoothMove(shoulderServo, shoulderPos, 90);
-  smoothMove(elbowServo, elbowPos, 90);
-  smoothMove(wristServo, wristPos, 90);
-  smoothMove(gripperServo, gripperPos, GRIPPER_OPEN);
+  moveArmToPose(90, 90, 90, 90, 120);
 }
 
 void moveArmToPose(int base, int shoulder, int elbow, int wrist, int gripper) {
-  base = constrain(base, 0, 180);
-  shoulder = constrain(shoulder, 0, 180);
-  elbow = constrain(elbow, 0, 180);
-  wrist = constrain(wrist, 0, 180);
-  gripper = constrain(gripper, 0, 180);
-
-  smoothMove(baseServo, basePos, base);
-  smoothMove(shoulderServo, shoulderPos, shoulder);
-  smoothMove(elbowServo, elbowPos, elbow);
-  smoothMove(wristServo, wristPos, wrist);
-  smoothMove(gripperServo, gripperPos, gripper);
+  smoothMove(BASE_CH, basePos, base);
+  smoothMove(SHOULDER_CH, shoulderPos, shoulder);
+  smoothMove(ELBOW_CH, elbowPos, elbow);
+  smoothMove(WRIST_CH, wristPos, wrist);
+  smoothMove(GRIPPER_CH, gripperPos, gripper);
 }
 
 void openGripper() {
-  smoothMove(gripperServo, gripperPos, GRIPPER_OPEN);
+  smoothMove(GRIPPER_CH, gripperPos, 120);
 }
 
 void closeGripper() {
-  smoothMove(gripperServo, gripperPos, GRIPPER_CLOSED);
+  smoothMove(GRIPPER_CH, gripperPos, 55);
 }
 
-void smoothMove(Servo &servo, int &currentPos, int targetPos) {
+void smoothMove(int channel, int &currentPos, int targetPos) {
   targetPos = constrain(targetPos, 0, 180);
 
   while (currentPos != targetPos) {
@@ -119,7 +112,7 @@ void smoothMove(Servo &servo, int &currentPos, int targetPos) {
       currentPos--;
     }
 
-    servo.write(currentPos);
+    writeServo(channel, currentPos);
     delay(15);
   }
 }
