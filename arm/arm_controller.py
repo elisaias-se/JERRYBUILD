@@ -29,8 +29,8 @@ class ArmController:
 
         response = self.arduino.readline().decode(errors="ignore").strip()
 
-    if response:
-        print("Arduino response:", response)
+        if response:
+            print("Arduino response:", response)
 
     def home_arm(self):
         self.arduino.write(b"HOME\n")
