@@ -59,7 +59,7 @@ def calculate_5dof_pose(
     distance_cm,
     angle_deg,
     target_height_cm=3,
-    wrist_angle=90,
+    wrist=90,
     gripper_angle=120,
 ):
     """
@@ -79,6 +79,6 @@ def calculate_5dof_pose(
         "base": base,
         "shoulder": shoulder,
         "elbow": elbow,
-        "wrist": round(clamp(wrist_angle)),
+        "wrist": round(clamp(wrist)),
         "gripper": round(clamp(gripper_angle)),
     }
