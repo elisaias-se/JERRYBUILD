@@ -21,16 +21,25 @@ class ArmController:
 
         print("Sending:", command.strip())
         self.arduino.write(command.encode())
+        self.arduino.flush()
+
+        response = self.arduino.readline().decode(errors="ignore").strip()
+        print("Arduino response:", response)
 
     def home_arm(self):
         self.arduino.write(b"HOME\n")
+        self.arduino.flush()
+        print("Arduino response:", self.arduino.readline().decode(errors="ignore").strip())
 
     def open_gripper(self):
         self.arduino.write(b"OPEN\n")
+        self.arduino.flush()
+        print("Arduino response:", self.arduino.readline().decode(errors="ignore").strip())
 
     def close_gripper(self):
         self.arduino.write(b"CLOSE\n")
-
+        self.arduino.flush()
+        print("Arduino response:", self.arduino.readline().decode(errors="ignore").strip())
     def move_to_target(self, distance_cm, angle_deg, wrist_angle):
         pose = calculate_5dof_pose(
             distance_cm=distance_cm,
