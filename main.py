@@ -123,7 +123,7 @@ while True:
             arm.pickup_object(
                 distance_cm=target["y_cm"],
                 angle_deg=target["angle_deg"],
-                wrist_angle=stable_grasp["wrist"]
+                wrist_angle=stable_grasp.get("wrist_angle", stable_grasp.get("wrist", 90))
             )
 
             tracker.reset()
