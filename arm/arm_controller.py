@@ -10,8 +10,8 @@ GRIPPER_CLOSED = 55
 
 class ArmController:
     def __init__(self, port="/dev/ttyACM0", baud_rate=115200):
-        self.arduino = serial.Serial(port, baud_rate, timeout=1)
-        time.sleep(2)
+        self.arduino = serial.Serial(port, baud_rate, timeout=3)
+        time.sleep(3)
 
     def send_pose(self, pose):
         command = (
@@ -20,10 +20,16 @@ class ArmController:
         )
 
         print("Sending:", command.strip())
+
+        self.arduino.reset_input_buffer()
         self.arduino.write(command.encode())
         self.arduino.flush()
 
+        time.sleep(0.2)
+
         response = self.arduino.readline().decode(errors="ignore").strip()
+
+    if response:
         print("Arduino response:", response)
 
     def home_arm(self):
