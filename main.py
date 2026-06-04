@@ -102,7 +102,7 @@ while True:
             f"Angle: {angle_deg:.2f}° | "
             f"X: {x_cm:.2f} cm | "
             f"Y: {y_cm:.2f} cm | "
-            f"Wrist: {grasp.get('wrist_angle', grasp.get('wrist', 90))}°"
+            f"Wrist Rotate: {grasp.get('wrist_angle', 90)}°"
         )
 
         if tracker.is_stable() and not arm_busy:
@@ -119,12 +119,19 @@ while True:
             print("Stable target locked:")
             print(target)
 
-            # Keep this commented until you fully trust the coordinates.
+            print("MAIN IS COMMANDING ARM")
+            print("target:", target)
+            print("stable_grasp:", stable_grasp)
+
+            print("Distance being sent:", target["y_cm"])
+            print("Angle being sent:", target["angle_deg"])
+            print("Wrist rotate being sent:", stable_grasp.get("wrist_angle", 90))
+
             arm.pickup_object(
                 distance_cm=target["y_cm"],
                 angle_deg=target["angle_deg"],
                 wrist_angle=90,
-                wrist_rotate=stable_grasp["wrist_angle"]
+                wrist_rotate=stable_grasp.get("wrist_angle", 90),
             )
 
             tracker.reset()
