@@ -60,8 +60,20 @@ def calculate_5dof_pose(
     angle_deg,
     target_height_cm=3,
     wrist_angle=90,
+    wrist_rotate=90,
     gripper_angle=120,
 ):
+    """
+    Calculates a full 6-servo pose.
+
+    Servo 1: base
+    Servo 2: shoulder
+    Servo 3: elbow
+    Servo 4: wrist pitch
+    Servo 5: wrist rotation / supination-pronation
+    Servo 6: gripper
+    """
+
     base = calculate_base_angle(angle_deg)
     shoulder, elbow = calculate_2_link_ik(distance_cm, target_height_cm)
 
@@ -69,6 +81,7 @@ def calculate_5dof_pose(
         "base": base,
         "shoulder": shoulder,
         "elbow": elbow,
-        "wrist": round(clamp(wrist_angle)),
+        "wrist_pitch": round(clamp(wrist_angle)),
+        "wrist_rotate": round(clamp(wrist_rotate)),
         "gripper": round(clamp(gripper_angle)),
     }

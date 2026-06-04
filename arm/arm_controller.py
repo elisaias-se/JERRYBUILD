@@ -16,7 +16,8 @@ class ArmController:
     def send_pose(self, pose):
         command = (
             f"POSE {pose['base']} {pose['shoulder']} "
-            f"{pose['elbow']} {pose['wrist']} {pose['gripper']}\n"
+            f"{pose['elbow']} {pose['wrist_pitch']} "
+            f"{pose['wrist_rotate']} {pose['gripper']}\n"
         )
 
         print("Sending:", command.strip())
@@ -46,23 +47,26 @@ class ArmController:
         self.arduino.write(b"CLOSE\n")
         self.arduino.flush()
         print("Arduino response:", self.arduino.readline().decode(errors="ignore").strip())
+
     def move_to_target(self, distance_cm, angle_deg, wrist_angle):
         pose = calculate_5dof_pose(
             distance_cm=distance_cm,
             angle_deg=angle_deg,
             target_height_cm=3,
             wrist_angle=wrist_angle,
+            wrist_rotate=90,
             gripper_angle=GRIPPER_OPEN,
         )
 
         self.send_pose(pose)
 
-    def pickup_object(self, distance_cm, angle_deg, wrist_angle):
+    def pickup_object(self, distance_cm, angle_deg, wrist_angle, wrist_rotate=90):
         approach_pose = calculate_5dof_pose(
             distance_cm=distance_cm,
             angle_deg=angle_deg,
             target_height_cm=6,
             wrist_angle=wrist_angle,
+            wrist_rotate=wrist_rotate,
             gripper_angle=GRIPPER_OPEN,
         )
 
@@ -71,6 +75,7 @@ class ArmController:
             angle_deg=angle_deg,
             target_height_cm=2,
             wrist_angle=wrist_angle,
+            wrist_rotate=wrist_rotate,
             gripper_angle=GRIPPER_OPEN,
         )
 

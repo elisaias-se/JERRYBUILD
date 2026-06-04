@@ -1,5 +1,5 @@
 /* Upload code to connected Arduino Mega 2560
-   Controls servos through PCA9685 servo driver
+   Controls 6 servos through PCA9685 servo driver
 */
 
 #include <Wire.h>
@@ -7,7 +7,6 @@
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-// Servo pulse calibration
 #define SERVOMIN 150
 #define SERVOMAX 600
 #define SERVO_FREQ 50
@@ -16,13 +15,15 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 const int BASE_CH = 0;
 const int SHOULDER_CH = 1;
 const int ELBOW_CH = 2;
-const int WRIST_CH = 3;
-const int GRIPPER_CH = 4;
+const int WRIST_PITCH_CH = 3;
+const int WRIST_ROTATE_CH = 4;
+const int GRIPPER_CH = 5;
 
 int basePos = 90;
 int shoulderPos = 90;
 int elbowPos = 90;
-int wristPos = 90;
+int wristPitchPos = 90;
+int wristRotatePos = 90;
 int gripperPos = 120;
 
 const int GRIPPER_OPEN = 120;
@@ -37,7 +38,7 @@ void setup() {
 
   homeArm();
 
-  Serial.println("PCA9685 arm controller ready");
+  Serial.println("PCA9685 6-servo arm controller ready");
 }
 
 void loop() {
@@ -70,21 +71,23 @@ void handlePoseCommand(String command) {
   int base;
   int shoulder;
   int elbow;
-  int wrist;
+  int wristPitch;
+  int wristRotate;
   int gripper;
 
   int parsed = sscanf(
     command.c_str(),
-    "POSE %d %d %d %d %d",
+    "POSE %d %d %d %d %d %d",
     &base,
     &shoulder,
     &elbow,
-    &wrist,
+    &wristPitch,
+    &wristRotate,
     &gripper
   );
 
-  if (parsed == 5) {
-    moveArmToPose(base, shoulder, elbow, wrist, gripper);
+  if (parsed == 6) {
+    moveArmToPose(base, shoulder, elbow, wristPitch, wristRotate, gripper);
     Serial.println("OK");
   } else {
     Serial.println("ERROR: Invalid POSE command");
@@ -101,20 +104,29 @@ void writeServo(int channel, int angle) {
 }
 
 void homeArm() {
-  moveArmToPose(90, 90, 90, 90, GRIPPER_OPEN);
+  moveArmToPose(90, 90, 90, 90, 90, GRIPPER_OPEN);
 }
 
-void moveArmToPose(int base, int shoulder, int elbow, int wrist, int gripper) {
+void moveArmToPose(
+  int base,
+  int shoulder,
+  int elbow,
+  int wristPitch,
+  int wristRotate,
+  int gripper
+) {
   base = constrain(base, 0, 180);
   shoulder = constrain(shoulder, 0, 180);
   elbow = constrain(elbow, 0, 180);
-  wrist = constrain(wrist, 0, 180);
+  wristPitch = constrain(wristPitch, 0, 180);
+  wristRotate = constrain(wristRotate, 0, 180);
   gripper = constrain(gripper, 0, 180);
 
   smoothMove(BASE_CH, basePos, base);
   smoothMove(SHOULDER_CH, shoulderPos, shoulder);
   smoothMove(ELBOW_CH, elbowPos, elbow);
-  smoothMove(WRIST_CH, wristPos, wrist);
+  smoothMove(WRIST_PITCH_CH, wristPitchPos, wristPitch);
+  smoothMove(WRIST_ROTATE_CH, wristRotatePos, wristRotate);
   smoothMove(GRIPPER_CH, gripperPos, gripper);
 }
 
