@@ -16,13 +16,14 @@ from tracking.target_tracker import TargetTracker
 from grasping.grasp_planner import plan_grip
 from arm.arm_controller import ArmController
 
-
+#Opening camera based on current testing OS
 def open_camera(camera_index=0):
     current_os = platform.system()
     print(f"Detected OS: {current_os}")
 
     if current_os == "Windows":
         return cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+    #Jetson camera launch
     elif current_os == "Linux":
         return cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
     else:

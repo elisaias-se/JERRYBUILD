@@ -1,3 +1,4 @@
+#Functions used to determine angle of object grasping based on object dimensions
 def plan_grip(detection, x_cm, y_cm):
     width = detection["pixel_width"]
     height = detection["pixel_height"]
