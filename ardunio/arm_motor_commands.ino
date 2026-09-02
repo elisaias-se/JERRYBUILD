@@ -1,154 +1,171 @@
-/* Upload code to connected Arduino Mega 2560
-   Controls 6 servos through PCA9685 servo driver
-*/
+/*
+ * BigTreeTech Octopus Pro v1.1 six-axis arm controller.
+ *
+ * Host protocol (kept compatible with the PCA9685 version):
+ *   POSE <base> <shoulder> <elbow> <wrist_pitch> <wrist_rotate> <gripper>
+ *   HOME | OPEN | CLOSE
+ *
+ * Motor sockets 0 through 5 are assigned in that order. POSE values are joint
+ * angles in degrees, not raw steps.
+ *
+ * IMPORTANT: There is no endstop homing in this first version. Put the arm at
+ * HOME_ANGLE before powering it. setup() declares that position as current.
+ */
 
-#include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
+#include <Arduino.h>
+#include <AccelStepper.h>
+#include <math.h>
 
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+constexpr uint8_t AXIS_COUNT = 6;
+constexpr uint32_t SERIAL_BAUD = 115200;
 
-#define SERVOMIN 150
-#define SERVOMAX 600
-#define SERVO_FREQ 50
+enum Axis : uint8_t { BASE, SHOULDER, ELBOW, WRIST_PITCH, WRIST_ROTATE, GRIPPER };
 
-// PCA9685 channel assignments
-const int BASE_CH = 0;
-const int SHOULDER_CH = 1;
-const int ELBOW_CH = 2;
-const int WRIST_PITCH_CH = 3;
-const int WRIST_ROTATE_CH = 4;
-const int GRIPPER_CH = 5;
+// Octopus Pro v1.1 motor sockets 0-5.
+constexpr pin_size_t STEP_PIN[AXIS_COUNT] = {PF13, PG0, PF11, PG4, PF9, PC13};
+constexpr pin_size_t DIR_PIN[AXIS_COUNT] = {PF12, PG1, PG3, PC1, PF10, PF0};
+constexpr pin_size_t ENABLE_PIN[AXIS_COUNT] = {PF14, PF15, PG5, PA2, PG2, PF1};
 
-int basePos = 90;
-int shoulderPos = 90;
-int elbowPos = 90;
-int wristPitchPos = 90;
-int wristRotatePos = 90;
-int gripperPos = 120;
+// Calibrate for each motor, microstep setting, and gearbox:
+// (motor full steps/rev * microsteps * gear ratio) / 360 degrees.
+constexpr float STEPS_PER_DEGREE[AXIS_COUNT] = {
+  8.8889f, 8.8889f, 8.8889f, 8.8889f, 8.8889f, 8.8889f
+};
+constexpr bool INVERT_DIRECTION[AXIS_COUNT] = {
+  false, false, false, false, false, false
+};
+constexpr float MAX_SPEED[AXIS_COUNT] = {
+  1200.0f, 1000.0f, 1000.0f, 1200.0f, 1200.0f, 800.0f
+};
+constexpr float ACCELERATION[AXIS_COUNT] = {
+  600.0f, 500.0f, 500.0f, 600.0f, 600.0f, 400.0f
+};
 
-const int GRIPPER_OPEN = 120;
-const int GRIPPER_CLOSED = 55;
+constexpr int MIN_ANGLE[AXIS_COUNT] = {0, 0, 0, 0, 0, 0};
+constexpr int MAX_ANGLE[AXIS_COUNT] = {180, 180, 180, 180, 180, 180};
+constexpr int HOME_ANGLE[AXIS_COUNT] = {90, 90, 90, 90, 90, 120};
+constexpr int GRIPPER_OPEN_ANGLE = 120;
+constexpr int GRIPPER_CLOSED_ANGLE = 55;
 
-void setup() {
-  Serial.begin(115200);
+AccelStepper baseMotor(AccelStepper::DRIVER, STEP_PIN[BASE], DIR_PIN[BASE]);
+AccelStepper shoulderMotor(AccelStepper::DRIVER, STEP_PIN[SHOULDER], DIR_PIN[SHOULDER]);
+AccelStepper elbowMotor(AccelStepper::DRIVER, STEP_PIN[ELBOW], DIR_PIN[ELBOW]);
+AccelStepper wristPitchMotor(AccelStepper::DRIVER, STEP_PIN[WRIST_PITCH], DIR_PIN[WRIST_PITCH]);
+AccelStepper wristRotateMotor(AccelStepper::DRIVER, STEP_PIN[WRIST_ROTATE], DIR_PIN[WRIST_ROTATE]);
+AccelStepper gripperMotor(AccelStepper::DRIVER, STEP_PIN[GRIPPER], DIR_PIN[GRIPPER]);
 
-  pwm.begin();
-  pwm.setPWMFreq(SERVO_FREQ);
-  delay(10);
+AccelStepper *motors[AXIS_COUNT] = {
+  &baseMotor, &shoulderMotor, &elbowMotor,
+  &wristPitchMotor, &wristRotateMotor, &gripperMotor
+};
+int currentAngle[AXIS_COUNT];
 
-  homeArm();
-
-  Serial.println("PCA9685 6-servo arm controller ready");
+long angleToSteps(uint8_t axis, int angle) {
+  return lroundf(angle * STEPS_PER_DEGREE[axis]);
 }
 
-void loop() {
-  if (Serial.available()) {
-    String command = Serial.readStringUntil('\n');
-    command.trim();
-
-    if (command == "HOME") {
-      homeArm();
-      Serial.println("OK HOME");
-    }
-    else if (command == "OPEN") {
-      openGripper();
-      Serial.println("OK OPEN");
-    }
-    else if (command == "CLOSE") {
-      closeGripper();
-      Serial.println("OK CLOSE");
-    }
-    else if (command.startsWith("POSE")) {
-      handlePoseCommand(command);
-    }
-    else {
-      Serial.println("ERROR: Unknown command");
+bool anglesAreSafe(const int angles[AXIS_COUNT]) {
+  for (uint8_t axis = 0; axis < AXIS_COUNT; ++axis) {
+    if (angles[axis] < MIN_ANGLE[axis] || angles[axis] > MAX_ANGLE[axis]) {
+      return false;
     }
   }
+  return true;
 }
 
-void handlePoseCommand(String command) {
-  int base;
-  int shoulder;
-  int elbow;
-  int wristPitch;
-  int wristRotate;
-  int gripper;
-
-  int parsed = sscanf(
-    command.c_str(),
-    "POSE %d %d %d %d %d %d",
-    &base,
-    &shoulder,
-    &elbow,
-    &wristPitch,
-    &wristRotate,
-    &gripper
-  );
-
-  if (parsed == 6) {
-    moveArmToPose(base, shoulder, elbow, wristPitch, wristRotate, gripper);
-    Serial.println("OK");
-  } else {
-    Serial.println("ERROR: Invalid POSE command");
+void moveToAngles(const int angles[AXIS_COUNT]) {
+  for (uint8_t axis = 0; axis < AXIS_COUNT; ++axis) {
+    motors[axis]->moveTo(angleToSteps(axis, angles[axis]));
   }
-}
 
-int angleToPulse(int angle) {
-  angle = constrain(angle, 0, 180);
-  return map(angle, 0, 180, SERVOMIN, SERVOMAX);
-}
+  bool moving;
+  do {
+    moving = false;
+    for (uint8_t axis = 0; axis < AXIS_COUNT; ++axis) {
+      if (motors[axis]->distanceToGo() != 0) {
+        motors[axis]->run();
+        moving = true;
+      }
+    }
+  } while (moving);
 
-void writeServo(int channel, int angle) {
-  pwm.setPWM(channel, 0, angleToPulse(angle));
+  for (uint8_t axis = 0; axis < AXIS_COUNT; ++axis) {
+    currentAngle[axis] = angles[axis];
+  }
 }
 
 void homeArm() {
-  moveArmToPose(90, 90, 90, 90, 90, GRIPPER_OPEN);
+  moveToAngles(HOME_ANGLE);
 }
 
-void moveArmToPose(
-  int base,
-  int shoulder,
-  int elbow,
-  int wristPitch,
-  int wristRotate,
-  int gripper
-) {
-  base = constrain(base, 0, 180);
-  shoulder = constrain(shoulder, 0, 180);
-  elbow = constrain(elbow, 0, 180);
-  wristPitch = constrain(wristPitch, 0, 180);
-  wristRotate = constrain(wristRotate, 0, 180);
-  gripper = constrain(gripper, 0, 180);
-
-  smoothMove(BASE_CH, basePos, base);
-  smoothMove(SHOULDER_CH, shoulderPos, shoulder);
-  smoothMove(ELBOW_CH, elbowPos, elbow);
-  smoothMove(WRIST_PITCH_CH, wristPitchPos, wristPitch);
-  smoothMove(WRIST_ROTATE_CH, wristRotatePos, wristRotate);
-  smoothMove(GRIPPER_CH, gripperPos, gripper);
+void moveGripperTo(int angle) {
+  int pose[AXIS_COUNT];
+  for (uint8_t axis = 0; axis < AXIS_COUNT; ++axis) {
+    pose[axis] = currentAngle[axis];
+  }
+  pose[GRIPPER] = angle;
+  moveToAngles(pose);
 }
 
-void openGripper() {
-  smoothMove(GRIPPER_CH, gripperPos, GRIPPER_OPEN);
+void handlePoseCommand(const String &command) {
+  int angles[AXIS_COUNT];
+  const int parsed = sscanf(
+    command.c_str(), "POSE %d %d %d %d %d %d",
+    &angles[BASE], &angles[SHOULDER], &angles[ELBOW],
+    &angles[WRIST_PITCH], &angles[WRIST_ROTATE], &angles[GRIPPER]
+  );
+
+  if (parsed != AXIS_COUNT) {
+    Serial.println("ERROR Invalid POSE command");
+    return;
+  }
+  if (!anglesAreSafe(angles)) {
+    Serial.println("ERROR Joint angle outside configured limits");
+    return;
+  }
+
+  moveToAngles(angles);
+  Serial.println("OK");
 }
 
-void closeGripper() {
-  smoothMove(GRIPPER_CH, gripperPos, GRIPPER_CLOSED);
+void setup() {
+  Serial.begin(SERIAL_BAUD);
+  Serial.setTimeout(100);
+
+  for (uint8_t axis = 0; axis < AXIS_COUNT; ++axis) {
+    motors[axis]->setEnablePin(ENABLE_PIN[axis]);
+    motors[axis]->setPinsInverted(INVERT_DIRECTION[axis], false, true);
+    motors[axis]->setMinPulseWidth(2);
+    motors[axis]->setMaxSpeed(MAX_SPEED[axis]);
+    motors[axis]->setAcceleration(ACCELERATION[axis]);
+    motors[axis]->setCurrentPosition(angleToSteps(axis, HOME_ANGLE[axis]));
+    motors[axis]->enableOutputs();
+    currentAngle[axis] = HOME_ANGLE[axis];
+  }
+
+  Serial.println("READY Octopus Pro v1.1 stepper arm");
 }
 
-void smoothMove(int channel, int &currentPos, int targetPos) {
-  targetPos = constrain(targetPos, 0, 180);
+void loop() {
+  if (!Serial.available()) {
+    return;
+  }
 
-  while (currentPos != targetPos) {
-    if (currentPos < targetPos) {
-      currentPos++;
-    } else {
-      currentPos--;
-    }
+  String command = Serial.readStringUntil('\n');
+  command.trim();
 
-    writeServo(channel, currentPos);
-    delay(15);
+  if (command == "HOME") {
+    homeArm();
+    Serial.println("OK HOME");
+  } else if (command == "OPEN") {
+    moveGripperTo(GRIPPER_OPEN_ANGLE);
+    Serial.println("OK OPEN");
+  } else if (command == "CLOSE") {
+    moveGripperTo(GRIPPER_CLOSED_ANGLE);
+    Serial.println("OK CLOSE");
+  } else if (command.startsWith("POSE ")) {
+    handlePoseCommand(command);
+  } else {
+    Serial.println("ERROR Unknown command");
   }
 }
